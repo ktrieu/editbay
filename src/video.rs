@@ -1,6 +1,7 @@
 use std::result::Result;
 
 use crate::ffmpeg::is_ffmpeg_available;
+use crate::ffmpeg::start_ffmpeg;
 use crate::ffmpeg::FfmpegSearchError;
 
 pub struct Video {
@@ -33,6 +34,7 @@ impl Video {
     pub fn render(&self, filename: &str, ffmpeg_path: &str) -> Result<(), RenderError> {
         is_ffmpeg_available(ffmpeg_path)?;
         println!("Rendering to {}", filename);
+        let ffmpeg_process = start_ffmpeg(self.fps, ffmpeg_path, filename).unwrap();
         Ok(())
     }
 }

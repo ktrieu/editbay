@@ -1,7 +1,8 @@
 use std::fmt;
 use std::fmt::Display;
+use std::io;
 use std::io::ErrorKind;
-use std::process::Command;
+use std::process::{Child, Command, Stdio};
 
 #[derive(Debug)]
 pub enum FfmpegSearchError {
@@ -33,4 +34,23 @@ pub fn is_ffmpeg_available(ffmpeg_path: &str) -> Result<(), FfmpegSearchError> {
             }
         }
     }
+}
+
+pub fn start_ffmpeg(fps: i32, ffmpeg_path: &str, output_filename: &str) -> io::Result<Child> {
+    Command::new(ffmpeg_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .args([
+            "-f",
+            "image2pipe",
+            "-c:v",
+            "ppm",
+            "-i",
+            "-",
+            "-r",
+            &fps.to_string(),
+            output_filename,
+        ])
+        .spawn()
 }
