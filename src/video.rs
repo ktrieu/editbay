@@ -2,7 +2,7 @@ use std::result::Result;
 
 use crate::ffmpeg::is_ffmpeg_available;
 use crate::ffmpeg::start_ffmpeg;
-use crate::ffmpeg::FfmpegSearchError;
+use crate::ffmpeg::FfmpegError;
 
 pub struct Video {
     fps: i32,
@@ -10,12 +10,24 @@ pub struct Video {
 
 #[derive(Debug)]
 pub enum RenderError {
-    FfmpegError(FfmpegSearchError),
+    FfmpegError(FfmpegError),
 }
 
-impl From<FfmpegSearchError> for RenderError {
-    fn from(err: FfmpegSearchError) -> Self {
+impl std::error::Error for RenderError {}
+
+impl From<FfmpegError> for RenderError {
+    fn from(err: FfmpegError) -> Self {
         RenderError::FfmpegError(err)
+    }
+}
+
+impl std::fmt::Display for RenderError {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RenderError::FfmpegError(e) => {
+                write!(fmt, "FFMPEG Error: {}", e)
+            }
+        }
     }
 }
 

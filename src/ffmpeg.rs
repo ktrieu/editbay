@@ -1,43 +1,54 @@
-use std::fmt;
 use std::fmt::Display;
-use std::io;
 use std::io::ErrorKind;
 use std::process::{Child, Command, Stdio};
 
 #[derive(Debug)]
-pub enum FfmpegSearchError {
+pub enum FfmpegError {
     NotFound(String),
-    Unknown(String),
+    Unknown(std::io::Error),
 }
 
-impl Display for FfmpegSearchError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::error::Error for FfmpegError {}
+
+impl Display for FfmpegError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FfmpegSearchError::NotFound(path) => {
+            FfmpegError::NotFound(path) => {
                 write!(f, "Could not find FFMPEG at {}. Check your PATH.", path)
             }
-            FfmpegSearchError::Unknown(error) => {
-                write!(f, "Unknown error locating FFMPEG: {}", error)
+            FfmpegError::Unknown(error) => {
+                write!(f, "Unknown error starting FFMPEG: {}", error)
             }
         }
     }
 }
 
-pub fn is_ffmpeg_available(ffmpeg_path: &str) -> Result<(), FfmpegSearchError> {
+impl From<std::io::Error> for FfmpegError {
+    fn from(error: std::io::Error) -> Self {
+        FfmpegError::Unknown(error)
+    }
+}
+
+pub fn is_ffmpeg_available(ffmpeg_path: &str) -> Result<(), FfmpegError> {
     match Command::new(ffmpeg_path).output() {
         Ok(_) => Ok(()),
         Err(e) => {
             if e.kind() == ErrorKind::NotFound {
-                Err(FfmpegSearchError::NotFound(ffmpeg_path.to_string()))
+                Err(FfmpegError::NotFound(ffmpeg_path.to_string()))
             } else {
-                Err(FfmpegSearchError::Unknown(e.to_string()))
+                Err(FfmpegError::Unknown(e))
             }
         }
     }
 }
 
-pub fn start_ffmpeg(fps: i32, ffmpeg_path: &str, output_filename: &str) -> io::Result<Child> {
-    Command::new(ffmpeg_path)
+pub fn start_ffmpeg(
+    fps: i32,
+    ffmpeg_path: &str,
+    output_filename: &str,
+) -> Result<Child, FfmpegError> {
+    is_ffmpeg_available(ffmpeg_path)?;
+    let subprocess = Command::new(ffmpeg_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -52,5 +63,6 @@ pub fn start_ffmpeg(fps: i32, ffmpeg_path: &str, output_filename: &str) -> io::R
             &fps.to_string(),
             output_filename,
         ])
-        .spawn()
+        .spawn()?;
+    Ok(subprocess)
 }
