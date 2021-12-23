@@ -1,9 +1,15 @@
 use std::result::Result;
 
+use crate::clip::transform::ClipTransform;
+use crate::clip::transform::FrameNum;
+use crate::clip::Clip;
 use crate::ffmpeg::start_ffmpeg;
 use crate::ffmpeg::submit_frame;
 use crate::ffmpeg::wait_ffmpeg;
 use crate::ffmpeg::FfmpegError;
+
+use crate::clip::image_clip::ImageClip;
+use crate::clip::transform::Rect;
 
 #[derive(Debug)]
 pub enum RenderError {
@@ -55,13 +61,21 @@ impl Video {
         let mut ffmpeg_process = start_ffmpeg(self, ffmpeg_path, filename)?;
         let mut image = image::RgbaImage::new(self.width, self.height);
 
-        let num_frames = self.fps * 4;
-        for frame in 0..num_frames {
-            let intensity: f32 = frame as f32 / num_frames as f32;
-            for (_, _, pixel) in image.enumerate_pixels_mut() {
-                let color = (intensity * 255f32) as u8;
-                *pixel = image::Rgba([color, color, color, 255]);
-            }
+        let num_frames = FrameNum(self.fps * 4);
+        let transform = ClipTransform {
+            in_frame: FrameNum(0),
+            // shitty hacks to get this to compile so i can test it
+            out_frame: FrameNum(num_frames.0 / 2),
+            bounds: Rect::from_dimensions(0, 0, 64, 64),
+        };
+
+        let clip = ImageClip::from_file(transform, "taco.jpg").unwrap();
+
+        for frame in 0..num_frames.0 {
+            // clear the frame
+            image.fill(0);
+
+            clip.render_frame(FrameNum(frame), &mut image);
             submit_frame(&mut ffmpeg_process, &image)?;
         }
 
