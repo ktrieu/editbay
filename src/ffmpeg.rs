@@ -77,8 +77,8 @@ pub fn start_ffmpeg(
     is_ffmpeg_available(ffmpeg_path)?;
     let subprocess = Command::new(ffmpeg_path)
         .stdin(Stdio::piped())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .arg("-y") // overwrite the output file without asking
         .args(get_format_args())
         .args(get_dimension_args(video))
