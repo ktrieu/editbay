@@ -2,6 +2,8 @@ use std::result::Result;
 
 use crate::ffmpeg::is_ffmpeg_available;
 use crate::ffmpeg::start_ffmpeg;
+use crate::ffmpeg::submit_frame;
+use crate::ffmpeg::wait_ffmpeg;
 use crate::ffmpeg::FfmpegError;
 
 #[derive(Debug)]
@@ -58,9 +60,21 @@ impl Video {
     }
 
     pub fn render(&self, filename: &str, ffmpeg_path: &str) -> Result<(), RenderError> {
-        is_ffmpeg_available(ffmpeg_path)?;
         println!("Rendering to {}", filename);
-        let ffmpeg_process = start_ffmpeg(self, ffmpeg_path, filename).unwrap();
+        let mut ffmpeg_process = start_ffmpeg(self, ffmpeg_path, filename)?;
+        let mut image = image::RgbaImage::new(self.width, self.height);
+
+        let num_frames = self.fps * 4;
+        for frame in 0..num_frames {
+            let intensity: f32 = frame as f32 / num_frames as f32;
+            for (_, _, pixel) in image.enumerate_pixels_mut() {
+                let color = (intensity * 255f32) as u8;
+                *pixel = image::Rgba([color, color, color, 255]);
+            }
+            submit_frame(&mut ffmpeg_process, &image)?;
+        }
+
+        wait_ffmpeg(&mut ffmpeg_process)?;
         Ok(())
     }
 }

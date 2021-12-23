@@ -1,6 +1,8 @@
 use std::fmt::Display;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Write};
 use std::process::{Child, Command, Stdio};
+
+use image::{EncodableLayout, RgbaImage};
 
 use crate::video::Video;
 
@@ -44,12 +46,19 @@ pub fn is_ffmpeg_available(ffmpeg_path: &str) -> Result<(), FfmpegError> {
     }
 }
 
-fn get_fps_args(video: &Video) -> [String; 2] {
-    ["-r".to_string(), video.fps.to_string()]
+fn get_format_args() -> [&'static str; 4] {
+    return ["-f", "rawvideo", "-pix_fmt", "rgba"];
 }
 
-fn get_format_args() -> [&'static str; 4] {
-    return ["-f", "image2pipe", "-c:v", "ppm"];
+fn get_dimension_args(video: &Video) -> [String; 2] {
+    return [
+        "-s".to_string(),
+        format!("{}x{}", video.width, video.height),
+    ];
+}
+
+fn get_fps_args(video: &Video) -> [String; 2] {
+    ["-r".to_string(), video.fps.to_string()]
 }
 
 fn get_input_args() -> [&'static str; 2] {
@@ -68,12 +77,26 @@ pub fn start_ffmpeg(
     is_ffmpeg_available(ffmpeg_path)?;
     let subprocess = Command::new(ffmpeg_path)
         .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .arg("-y") // overwrite the output file without asking
         .args(get_format_args())
+        .args(get_dimension_args(video))
         .args(get_input_args())
         .args(get_fps_args(video))
         .args(get_output_args(output_filename))
         .spawn()?;
     Ok(subprocess)
+}
+
+pub fn submit_frame(subprocess: &mut Child, frame: &RgbaImage) -> Result<(), FfmpegError> {
+    // we always capture stdin so it'll always be there
+    let stdin = subprocess.stdin.as_mut().unwrap();
+    stdin.write_all(frame.as_bytes())?;
+    Ok(())
+}
+
+pub fn wait_ffmpeg(subprocess: &mut Child) -> Result<(), FfmpegError> {
+    subprocess.wait()?;
+    Ok(())
 }
