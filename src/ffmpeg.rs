@@ -2,6 +2,8 @@ use std::fmt::Display;
 use std::io::ErrorKind;
 use std::process::{Child, Command, Stdio};
 
+use crate::video::Video;
+
 #[derive(Debug)]
 pub enum FfmpegError {
     NotFound(String),
@@ -42,8 +44,24 @@ pub fn is_ffmpeg_available(ffmpeg_path: &str) -> Result<(), FfmpegError> {
     }
 }
 
+fn get_fps_args(video: &Video) -> [String; 2] {
+    ["-r".to_string(), video.fps.to_string()]
+}
+
+fn get_format_args() -> [&'static str; 4] {
+    return ["-f", "image2pipe", "-c:v", "ppm"];
+}
+
+fn get_input_args() -> [&'static str; 2] {
+    ["-i", "-"]
+}
+
+fn get_output_args(output_filename: &str) -> [&str; 1] {
+    [output_filename]
+}
+
 pub fn start_ffmpeg(
-    fps: i32,
+    video: &Video,
     ffmpeg_path: &str,
     output_filename: &str,
 ) -> Result<Child, FfmpegError> {
@@ -52,17 +70,10 @@ pub fn start_ffmpeg(
         .stdin(Stdio::piped())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .args([
-            "-f",
-            "image2pipe",
-            "-c:v",
-            "ppm",
-            "-i",
-            "-",
-            "-r",
-            &fps.to_string(),
-            output_filename,
-        ])
+        .args(get_format_args())
+        .args(get_input_args())
+        .args(get_fps_args(video))
+        .args(get_output_args(output_filename))
         .spawn()?;
     Ok(subprocess)
 }
