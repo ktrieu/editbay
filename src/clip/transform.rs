@@ -1,5 +1,7 @@
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct FrameNum(pub u32);
+use crate::{
+    time::{Duration, Time},
+    video::Video,
+};
 
 pub struct Point {
     pub x: u32,
@@ -40,14 +42,13 @@ impl Rect {
 }
 
 pub struct ClipTransform {
-    pub in_frame: FrameNum,
-    pub out_frame: FrameNum,
+    pub duration: Duration,
     pub bounds: Rect,
 }
 
 impl ClipTransform {
-    pub fn is_active(&self, frame: FrameNum) -> bool {
-        self.in_frame <= frame && frame <= self.out_frame
+    pub fn is_active(&self, video: &Video, time: Time) -> bool {
+        self.duration.contains(time, video)
     }
 
     pub fn x(&self) -> u32 {

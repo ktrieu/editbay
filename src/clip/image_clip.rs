@@ -2,8 +2,10 @@ use image::imageops;
 use image::io::Reader as ImageReader;
 use image::RgbaImage;
 
-use crate::clip::transform::{ClipTransform, FrameNum};
+use crate::clip::transform::ClipTransform;
 use crate::clip::Clip;
+use crate::time::Time;
+use crate::video::Video;
 
 #[derive(Debug)]
 pub enum ImageClipError {
@@ -74,8 +76,8 @@ impl ImageClip {
 }
 
 impl Clip for ImageClip {
-    fn render_frame(&self, frame: FrameNum, framebuffer: &mut RgbaImage) {
-        if !self.transform.is_active(frame) {
+    fn render_frame(&self, video: &Video, time: Time, framebuffer: &mut RgbaImage) {
+        if !self.transform.is_active(video, time) {
             return;
         }
         // the image is already the right size so just copy it at the given location
