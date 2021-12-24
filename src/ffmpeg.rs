@@ -82,6 +82,7 @@ pub fn start_ffmpeg(
         .arg("-y") // overwrite the output file without asking
         .args(get_format_args())
         .args(get_dimension_args(video))
+        .args(get_fps_args(video))
         .args(get_input_args())
         .args(get_fps_args(video))
         .args(get_output_args(output_filename))
