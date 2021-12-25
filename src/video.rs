@@ -7,6 +7,8 @@ use crate::ffmpeg::FfmpegError;
 use crate::segment::Segment;
 use crate::time::Time;
 
+use indicatif::{ProgressBar, ProgressStyle};
+
 #[derive(Debug)]
 pub enum RenderError {
     FfmpegError(FfmpegError),
@@ -54,10 +56,25 @@ impl Video {
         self
     }
 
+    fn get_total_frames(&self) -> u32 {
+        self.segments
+            .iter()
+            .map(|s| s.length.to_frame_num(self))
+            .sum()
+    }
+
+    fn make_render_progress(&self) -> ProgressBar {
+        let total_frames = self.get_total_frames();
+        let progress_style = ProgressStyle::default_bar()
+            .template("{pos:>7} frames / {len:7} {wide_bar} {per_sec:2} {elapsed} elapsed");
+        ProgressBar::new(total_frames.into()).with_style(progress_style)
+    }
+
     pub fn render(&self, filename: &str, ffmpeg_path: &str) -> Result<(), RenderError> {
         println!("Rendering to {}", filename);
         let mut ffmpeg_process = start_ffmpeg(self, ffmpeg_path, filename)?;
         let mut image = image::RgbaImage::new(self.width, self.height);
+        let progress = self.make_render_progress();
 
         for s in &self.segments {
             let num_frames = s.length.to_frame_num(self);
@@ -68,11 +85,13 @@ impl Video {
                     c.render_frame(self, Time::Frame(frame), &mut image);
                 }
 
+                progress.inc(1);
                 submit_frame(&mut ffmpeg_process, &image)?;
             }
         }
 
         wait_ffmpeg(&mut ffmpeg_process)?;
+        progress.finish();
         Ok(())
     }
 }
