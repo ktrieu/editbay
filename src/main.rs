@@ -3,6 +3,13 @@ use editbay::clip::transform::{ClipTransform, Rect};
 use editbay::segment::Segment;
 use editbay::time::{Duration, Time};
 use editbay::video::RenderError;
+use indicatif::{ProgressBar, ProgressStyle};
+
+fn make_progress_bar(total_frames: u32) -> ProgressBar {
+    let progress_style = ProgressStyle::default_bar()
+        .template("{pos:>7} frames / {len:7} {wide_bar} {per_sec:2} {elapsed} elapsed");
+    ProgressBar::new(total_frames.into()).with_style(progress_style)
+}
 
 pub fn main() -> Result<(), RenderError> {
     let mut video = editbay::video::Video::new(1080, 720).with_fps(32);
@@ -30,8 +37,12 @@ pub fn main() -> Result<(), RenderError> {
 
     segment.clips.push(Box::new(image_clip1));
     segment.clips.push(Box::new(image_clip2));
-
     video.segments.push(segment);
-    video.render("video.mp4", "ffmpeg")?;
+
+    let progress = make_progress_bar(video.get_total_frames());
+
+    video.render("video.mp4", "ffmpeg", |_| progress.inc(1))?;
+    progress.finish();
+
     Ok(())
 }
