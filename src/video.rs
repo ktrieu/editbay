@@ -1,15 +1,10 @@
 use std::result::Result;
 
-use crate::clip::transform::ClipTransform;
-use crate::clip::Clip;
 use crate::ffmpeg::start_ffmpeg;
 use crate::ffmpeg::submit_frame;
 use crate::ffmpeg::wait_ffmpeg;
 use crate::ffmpeg::FfmpegError;
-
-use crate::clip::image_clip::ImageClip;
-use crate::clip::transform::Rect;
-use crate::time::Duration;
+use crate::segment::Segment;
 use crate::time::Time;
 
 #[derive(Debug)]
@@ -41,6 +36,7 @@ pub struct Video {
     pub fps: u32,
     pub width: u32,
     pub height: u32,
+    pub segments: Vec<Segment>,
 }
 
 impl Video {
@@ -49,10 +45,11 @@ impl Video {
             fps: FPS_DEFAULT,
             width: width,
             height: height,
+            segments: Vec::new(),
         }
     }
 
-    pub fn with_fps<'a>(&'a mut self, fps: u32) -> &'a mut Video {
+    pub fn with_fps<'a>(mut self, fps: u32) -> Video {
         self.fps = fps;
         self
     }
@@ -62,21 +59,17 @@ impl Video {
         let mut ffmpeg_process = start_ffmpeg(self, ffmpeg_path, filename)?;
         let mut image = image::RgbaImage::new(self.width, self.height);
 
-        let transform = ClipTransform {
-            duration: Duration {
-                start: Time::Seconds(0.),
-                end: Time::Seconds(10.),
-            },
-            bounds: Rect::from_dimensions(0, 0, 64, 64),
-        };
+        for s in &self.segments {
+            let num_frames = s.length.to_frame_num(self);
+            for frame in 0..num_frames {
+                image.fill(0);
 
-        let clip = ImageClip::from_file(transform, "taco.jpg").unwrap();
+                for c in &s.clips {
+                    c.render_frame(self, Time::Frame(frame), &mut image);
+                }
 
-        for frame in 0..Time::Seconds(20.).to_frame_num(self) {
-            // clear the frame
-            image.fill(0);
-            clip.render_frame(self, Time::Frame(frame), &mut image);
-            submit_frame(&mut ffmpeg_process, &image)?;
+                submit_frame(&mut ffmpeg_process, &image)?;
+            }
         }
 
         wait_ffmpeg(&mut ffmpeg_process)?;
